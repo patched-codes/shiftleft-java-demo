@@ -32,7 +32,8 @@ public class AdminController {
   {
     try {
       ByteArrayInputStream bis = new ByteArrayInputStream(Base64.getDecoder().decode(auth));
-      ObjectInputStream objectInputStream = new ObjectInputStream(bis);
+      // Securely deserialize the object
+      ObjectInputStream objectInputStream = new LookAheadObjectInputStream(bis);
       Object authToken = objectInputStream.readObject();
       return ((AuthToken) authToken).isAdmin();
     } catch (Exception ex) {
@@ -107,7 +108,10 @@ public class AdminController {
         ObjectOutputStream oos = new ObjectOutputStream(bos);
         oos.writeObject(authToken);
         String cookieValue = new String(Base64.getEncoder().encode(bos.toByteArray()));
-        response.addCookie(new Cookie("auth", cookieValue ));
+        Cookie authCookie = new Cookie("auth", cookieValue);
+        authCookie.setHttpOnly(true);
+        authCookie.setSecure(true);
+        response.addCookie(authCookie);
 
         // cookie is lost after redirection
         request.getSession().setAttribute("auth",cookieValue);
@@ -133,5 +137,21 @@ public class AdminController {
   @RequestMapping(value = "/admin/login", method = RequestMethod.GET)
   public String doGetLogin(HttpServletResponse response, HttpServletRequest request) {
     return "redirect:/";
+  }
+}
+
+// Custom LookAheadObjectInputStream to prevent deserialization of untrusted data
+class LookAheadObjectInputStream extends ObjectInputStream {
+
+  public LookAheadObjectInputStream(InputStream inputStream) throws IOException {
+    super(inputStream);
+  }
+
+  @Override
+  protected Class<?> resolveClass(ObjectStreamClass desc) throws IOException, ClassNotFoundException {
+    if (!desc.getName().equals(AuthToken.class.getName())) {
+      throw new ClassNotFoundException("Unauthorized deserialization attempt");
+    }
+    return super.resolveClass(desc);
   }
 }
