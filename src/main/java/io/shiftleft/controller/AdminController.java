@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-
 /**
  * Admin checks login
  */
@@ -31,7 +30,7 @@ public class AdminController {
   private boolean isAdmin(String auth)
   {
     try {
-      ByteArrayInputStream bis = new ByteArrayInputStream(Base64.getDecoder().decode(auth));
+      ByteArrayInputStream bis = new ByteArrayInputStream(Base64.getDecoder().decode(auth).getBytes(StandardCharsets.UTF_8));
       ObjectInputStream objectInputStream = new ObjectInputStream(bis);
       Object authToken = objectInputStream.readObject();
       return ((AuthToken) authToken).isAdmin();
@@ -47,16 +46,15 @@ public class AdminController {
     return fail;
   }
 
-
   @RequestMapping(value = "/admin/printSecrets", method = RequestMethod.GET)
-  public String doGetPrintSecrets(@CookieValue(value = "auth", defaultValue = "notset") String auth, HttpServletResponse response, HttpServletRequest request) throws Exception {
+  public String doGetPrintSecrets(@CookieValue(value = "auth", defaultValue = "notset", maxAge = 1) String auth, HttpServletResponse response, HttpServletRequest request) throws Exception {
 
     if (request.getSession().getAttribute("auth") == null) {
       return fail;
     }
 
     String authToken = request.getSession().getAttribute("auth").toString();
-    if(!isAdmin(authToken)) {
+    if (!isAdmin(authToken)) {
       return fail;
     }
 
@@ -88,36 +86,32 @@ public class AdminController {
     try {
       // no cookie no fun
       if (!auth.equals("notset")) {
-        if(isAdmin(auth)) {
-          request.getSession().setAttribute("auth",auth);
+        if (isAdmin(auth)) {
+          request.getSession().setAttribute("auth", auth);
           return succ;
         }
       }
 
       // split password=value
       String[] pass = password.split("=");
-      if(pass.length!=2) {
+      if (pass.length != 2) {
         return fail;
       }
       // compare pass
-      if(pass[1] != null && pass[1].length()>0 && pass[1].equals("shiftleftsecret"))
-      {
+      if (pass[1].equals("shiftleftsecret")) {
         AuthToken authToken = new AuthToken(AuthToken.ADMIN);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
         oos.writeObject(authToken);
         String cookieValue = new String(Base64.getEncoder().encode(bos.toByteArray()));
-        response.addCookie(new Cookie("auth", cookieValue ));
+        response.addCookie(new Cookie("auth", cookieValue).setHttpOnly(true).setSecure(true));
+        request.getSession().setAttribute("auth", cookieValue);
 
         // cookie is lost after redirection
-        request.getSession().setAttribute("auth",cookieValue);
-
         return succ;
       }
       return fail;
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
       ex.printStackTrace();
       // no succ == fail
       return fail;
