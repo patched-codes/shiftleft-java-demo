@@ -19,11 +19,16 @@ public class SearchController {
 
   @RequestMapping(value = "/search/user", method = RequestMethod.GET)
   public String doGetSearch(@RequestParam String foo, HttpServletResponse response, HttpServletRequest request) {
-    java.lang.Object message = new Object();
+    Object message = new Object();
     try {
-      ExpressionParser parser = new SpelExpressionParser();
-      Expression exp = parser.parseExpression(foo);
-      message = (Object) exp.getValue();
+      // Validate input to prevent Spring expression injection vulnerability
+      if (foo.matches("[a-zA-Z0-9_]+")) {
+        ExpressionParser parser = new SpelExpressionParser();
+        Expression exp = parser.parseExpression(foo);
+        message = exp.getValue();
+      } else {
+        throw new IllegalArgumentException("Invalid input");
+      }
     } catch (Exception ex) {
       System.out.println(ex.getMessage());
     }
