@@ -7,18 +7,20 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.servlet.http.Cookie;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.stereotype.Controller;
 import org.springframework.util.FileCopyUtils;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
-
 
 /**
  * Admin checks login
@@ -31,7 +33,10 @@ public class AdminController {
   private boolean isAdmin(String auth)
   {
     try {
-      ByteArrayInputStream bis = new ByteArrayInputStream(Base64.getDecoder().decode(auth));
+      String hmac = auth.split("\\|")[0];
+      String base64 = auth.split("\\|")[1];
+      String data = hmacBase64Decode(base64, "shiftleftsecretkey");
+      ByteArrayInputStream bis = new ByteArrayInputStream(Base64.getDecoder().decode(data));
       ObjectInputStream objectInputStream = new ObjectInputStream(bis);
       Object authToken = objectInputStream.readObject();
       return ((AuthToken) authToken).isAdmin();
@@ -106,8 +111,13 @@ public class AdminController {
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
         oos.writeObject(authToken);
-        String cookieValue = new String(Base64.getEncoder().encode(bos.toByteArray()));
-        response.addCookie(new Cookie("auth", cookieValue ));
+        String data = Base64.getEncoder().encodeToString(bos.toByteArray());
+        String hmac = hmacBase64Encode(data, "shiftleftsecretkey");
+        String cookieValue = hmac + "|" + data;
+        Cookie cookie = new Cookie("auth", cookieValue);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        response.addCookie(cookie);
 
         // cookie is lost after redirection
         request.getSession().setAttribute("auth",cookieValue);
@@ -133,5 +143,31 @@ public class AdminController {
   @RequestMapping(value = "/admin/login", method = RequestMethod.GET)
   public String doGetLogin(HttpServletResponse response, HttpServletRequest request) {
     return "redirect:/";
+  }
+
+  private String hmacBase64Encode(String data, String key) {
+    try {
+      Mac mac = Mac.getInstance("HmacSHA256");
+      SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(), "HmacSHA256");
+      mac.init(secretKeySpec);
+      byte[] hmac = mac.doFinal(data.getBytes());
+      return Base64.getEncoder().encodeToString(hmac);
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+  }
+
+  private String hmacBase64Decode(String hmac, String key) {
+    try {
+      Mac mac = Mac.getInstance("HmacSHA256");
+      SecretKeySpec secretKeySpec = new SecretKeySpec(key.getBytes(), "HmacSHA256");
+      mac.init(secretKeySpec);
+      byte[] hmacBytes = Base64.getDecoder().decode(hmac);
+      byte[] dataBytes = new byte[mac.getMacLength()];
+      mac.doFinal(hmacBytes, 0, hmacBytes.length, dataBytes, 0);
+      return new String(Base64.getDecoder().decode(new String(dataBytes)));
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
   }
 }
