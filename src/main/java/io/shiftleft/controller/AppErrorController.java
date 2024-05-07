@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -38,9 +39,8 @@ public class AppErrorController implements ErrorController{
   /**
    * Supports the HTML Error View
    * @param request
-   * @return
    */
-  @RequestMapping(value = ERROR_PATH, produces = "text/html")
+  @RequestMapping(value = ERROR_PATH, method = RequestMethod.GET, produces = "text/html")
   public ModelAndView errorHtml(HttpServletRequest request) {
     return new ModelAndView("/errors/error", getErrorAttributes(request, false));
   }
@@ -48,9 +48,8 @@ public class AppErrorController implements ErrorController{
   /**
    * Supports other formats like JSON, XML
    * @param request
-   * @return
    */
-  @RequestMapping(value = ERROR_PATH)
+  @RequestMapping(value = ERROR_PATH, method = RequestMethod.GET)
   @ResponseBody
   public ResponseEntity<Map<String, Object>> error(HttpServletRequest request) {
     Map<String, Object> body = getErrorAttributes(request, getTraceParameter(request));
@@ -78,7 +77,7 @@ public class AppErrorController implements ErrorController{
   }
 
   private Map<String, Object> getErrorAttributes(HttpServletRequest request,
-                                                 boolean includeStackTrace) {
+                                                     boolean includeStackTrace) {
     RequestAttributes requestAttributes = new ServletRequestAttributes(request);
 
     Map<String,Object> m = this.errorAttributes.getErrorAttributes(requestAttributes, includeStackTrace);
