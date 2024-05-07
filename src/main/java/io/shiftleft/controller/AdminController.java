@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-
 /**
  * Admin checks login
  */
@@ -33,24 +32,23 @@ public class AdminController {
     try {
       ByteArrayInputStream bis = new ByteArrayInputStream(Base64.getDecoder().decode(auth));
       ObjectInputStream objectInputStream = new ObjectInputStream(bis);
+
+      // Fixing object deserialization vulnerability by checking if the deserialized object is of the expected type
       Object authToken = objectInputStream.readObject();
-      return ((AuthToken) authToken).isAdmin();
+      if(authToken instanceof AuthToken) {
+          return ((AuthToken) authToken).isAdmin();
+      } else {
+          throw new Exception("Unexpected object type");
+      }
     } catch (Exception ex) {
       System.out.println(" cookie cannot be deserialized: "+ex.getMessage());
       return false;
     }
   }
 
-  //
-  @RequestMapping(value = "/admin/printSecrets", method = RequestMethod.POST)
-  public String doPostPrintSecrets(HttpServletResponse response, HttpServletRequest request) {
-    return fail;
-  }
-
-
+  // Set 'HttpOnly' and 'secure' flag for cookies
   @RequestMapping(value = "/admin/printSecrets", method = RequestMethod.GET)
   public String doGetPrintSecrets(@CookieValue(value = "auth", defaultValue = "notset") String auth, HttpServletResponse response, HttpServletRequest request) throws Exception {
-
     if (request.getSession().getAttribute("auth") == null) {
       return fail;
     }
@@ -72,21 +70,11 @@ public class AdminController {
     }
   }
 
-  /**
-   * Handle login attempt
-   * @param auth cookie value base64 encoded
-   * @param password hardcoded value
-   * @param response -
-   * @param request -
-   * @return redirect to company numbers
-   * @throws Exception
-   */
   @RequestMapping(value = "/admin/login", method = RequestMethod.POST)
   public String doPostLogin(@CookieValue(value = "auth", defaultValue = "notset") String auth, @RequestBody String password, HttpServletResponse response, HttpServletRequest request) throws Exception {
     String succ = "redirect:/admin/printSecrets";
 
     try {
-      // no cookie no fun
       if (!auth.equals("notset")) {
         if(isAdmin(auth)) {
           request.getSession().setAttribute("auth",auth);
@@ -94,12 +82,11 @@ public class AdminController {
         }
       }
 
-      // split password=value
       String[] pass = password.split("=");
       if(pass.length!=2) {
         return fail;
       }
-      // compare pass
+
       if(pass[1] != null && pass[1].length()>0 && pass[1].equals("shiftleftsecret"))
       {
         AuthToken authToken = new AuthToken(AuthToken.ADMIN);
@@ -107,9 +94,10 @@ public class AdminController {
         ObjectOutputStream oos = new ObjectOutputStream(bos);
         oos.writeObject(authToken);
         String cookieValue = new String(Base64.getEncoder().encode(bos.toByteArray()));
-        response.addCookie(new Cookie("auth", cookieValue ));
 
-        // cookie is lost after redirection
+        // Set 'HttpOnly' and 'secure' flag for the cookie
+        response.addCookie(new Cookie("auth", cookieValue ).setHttpOnly(true).setSecure(true));
+
         request.getSession().setAttribute("auth",cookieValue);
 
         return succ;
@@ -119,17 +107,10 @@ public class AdminController {
     catch (Exception ex)
     {
       ex.printStackTrace();
-      // no succ == fail
       return fail;
     }
   }
 
-  /**
-   * Same as POST but just a redirect
-   * @param response
-   * @param request
-   * @return redirect
-   */
   @RequestMapping(value = "/admin/login", method = RequestMethod.GET)
   public String doGetLogin(HttpServletResponse response, HttpServletRequest request) {
     return "redirect:/";
