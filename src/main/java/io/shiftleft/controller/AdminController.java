@@ -107,7 +107,10 @@ public class AdminController {
         ObjectOutputStream oos = new ObjectOutputStream(bos);
         oos.writeObject(authToken);
         String cookieValue = new String(Base64.getEncoder().encode(bos.toByteArray()));
-        response.addCookie(new Cookie("auth", cookieValue ));
+        Cookie cookie = new Cookie("auth", cookieValue );
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        response.addCookie(cookie);
 
         // cookie is lost after redirection
         request.getSession().setAttribute("auth",cookieValue);
@@ -135,3 +138,4 @@ public class AdminController {
     return "redirect:/";
   }
 }
+
