@@ -9,7 +9,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
-
+import org.apache.commons.lang3.StringEscapeUtils;
 
 /**
  * Search login
@@ -21,12 +21,22 @@ public class SearchController {
   public String doGetSearch(@RequestParam String foo, HttpServletResponse response, HttpServletRequest request) {
     java.lang.Object message = new Object();
     try {
-      ExpressionParser parser = new SpelExpressionParser();
-      Expression exp = parser.parseExpression(foo);
-      message = (Object) exp.getValue();
+      if (validateInput(foo)) {
+        ExpressionParser parser = new SpelExpressionParser();
+        String sanitizedFoo = StringEscapeUtils.escapeSql(foo);
+        Expression exp = parser.parseExpression(sanitizedFoo);
+        message = (Object) exp.getValue();
+      } else {
+        throw new IllegalArgumentException("Invalid input");
+      }
     } catch (Exception ex) {
       System.out.println(ex.getMessage());
     }
     return message.toString();
+  }
+
+  private boolean validateInput(String input) {
+    // Basic validation logic; can be improved for specific use cases
+    return input.matches("^[a-zA-Z0-9_]*$");
   }
 }

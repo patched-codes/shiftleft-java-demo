@@ -1,6 +1,8 @@
 package io.shiftleft.controller;
 
 import io.shiftleft.model.AuthToken;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -26,19 +28,44 @@ import org.springframework.web.bind.annotation.RequestMethod;
 @Controller
 public class AdminController {
   private String fail = "redirect:/";
+  private final String secretKey = "verySecretKey"; // Key for HMAC
 
   // helper
-  private boolean isAdmin(String auth)
-  {
+  private boolean isAdmin(String auth) throws Exception {
     try {
-      ByteArrayInputStream bis = new ByteArrayInputStream(Base64.getDecoder().decode(auth));
+      String[] parts = auth.split("\\|");
+      if (parts.length != 2) {
+        return false;
+      }
+
+      String data = parts[0];
+      String hash = parts[1];
+
+      if (!verifyHMAC(data, hash)) {
+        return false;
+      }
+
+      ByteArrayInputStream bis = new ByteArrayInputStream(Base64.getDecoder().decode(data));
       ObjectInputStream objectInputStream = new ObjectInputStream(bis);
       Object authToken = objectInputStream.readObject();
       return ((AuthToken) authToken).isAdmin();
     } catch (Exception ex) {
-      System.out.println(" cookie cannot be deserialized: "+ex.getMessage());
+      System.out.println(" cookie cannot be deserialized: " + ex.getMessage());
       return false;
     }
+  }
+
+  private String createHMAC(String data) throws Exception {
+    Mac mac = Mac.getInstance("HmacSHA256");
+    SecretKeySpec secretKeySpec = new SecretKeySpec(secretKey.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+    mac.init(secretKeySpec);
+    byte[] hmacBytes = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+    return Base64.getEncoder().encodeToString(hmacBytes);
+  }
+
+  private boolean verifyHMAC(String data, String hash) throws Exception {
+    String calculatedHash = createHMAC(data);
+    return calculatedHash.equals(hash);
   }
 
   //
@@ -56,7 +83,7 @@ public class AdminController {
     }
 
     String authToken = request.getSession().getAttribute("auth").toString();
-    if(!isAdmin(authToken)) {
+    if (!isAdmin(authToken)) {
       return fail;
     }
 
@@ -88,36 +115,39 @@ public class AdminController {
     try {
       // no cookie no fun
       if (!auth.equals("notset")) {
-        if(isAdmin(auth)) {
-          request.getSession().setAttribute("auth",auth);
+        if (isAdmin(auth)) {
+          request.getSession().setAttribute("auth", auth);
           return succ;
         }
       }
 
       // split password=value
       String[] pass = password.split("=");
-      if(pass.length!=2) {
+      if (pass.length != 2) {
         return fail;
       }
       // compare pass
-      if(pass[1] != null && pass[1].length()>0 && pass[1].equals("shiftleftsecret"))
-      {
+      if (pass[1] != null && pass[1].length() > 0 && pass[1].equals("shiftleftsecret")) {
         AuthToken authToken = new AuthToken(AuthToken.ADMIN);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
         oos.writeObject(authToken);
-        String cookieValue = new String(Base64.getEncoder().encode(bos.toByteArray()));
-        response.addCookie(new Cookie("auth", cookieValue ));
+        String serializedToken = new String(Base64.getEncoder().encode(bos.toByteArray()));
+        String hmac = createHMAC(serializedToken);
+        String cookieValue = serializedToken + "|" + hmac;
+
+        Cookie authCookie = new Cookie("auth", cookieValue);
+        authCookie.setHttpOnly(true);
+        authCookie.setSecure(true);
+        response.addCookie(authCookie);
 
         // cookie is lost after redirection
-        request.getSession().setAttribute("auth",cookieValue);
+        request.getSession().setAttribute("auth", cookieValue);
 
         return succ;
       }
       return fail;
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
       ex.printStackTrace();
       // no succ == fail
       return fail;
