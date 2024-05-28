@@ -21,8 +21,9 @@ public class SearchController {
   public String doGetSearch(@RequestParam String foo, HttpServletResponse response, HttpServletRequest request) {
     java.lang.Object message = new Object();
     try {
+      String sanitizedFoo = foo.replaceAll("[^a-zA-Z0-9\\s]", ""); // Sanitize input
       ExpressionParser parser = new SpelExpressionParser();
-      Expression exp = parser.parseExpression(foo);
+      Expression exp = parser.parseExpression(sanitizedFoo);
       message = (Object) exp.getValue();
     } catch (Exception ex) {
       System.out.println(ex.getMessage());
@@ -30,3 +31,4 @@ public class SearchController {
     return message.toString();
   }
 }
+
