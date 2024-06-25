@@ -21,6 +21,9 @@ public class SearchController {
   public String doGetSearch(@RequestParam String foo, HttpServletResponse response, HttpServletRequest request) {
     java.lang.Object message = new Object();
     try {
+      if (!foo.matches("[a-zA-Z0-9 ]*")) {
+        throw new IllegalArgumentException("Input contains illegal characters");
+      }
       ExpressionParser parser = new SpelExpressionParser();
       Expression exp = parser.parseExpression(foo);
       message = (Object) exp.getValue();
