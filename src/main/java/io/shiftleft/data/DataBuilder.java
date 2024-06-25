@@ -35,30 +35,14 @@ public class DataBuilder {
       BufferedWriter bw = new BufferedWriter(new FileWriter(temp));
       bw.write("This is the temporary file content");
       bw.close();
-      System.out.println(" File Write Successful ");
     } catch (IOException e) {
-
       e.printStackTrace();
-
     }
 
     try {
-
-      String output = new ProcessExecutor().command("java", "-version")
-          .redirectOutput(Slf4jStream.of(getClass()).asInfo()).readOutput(true).execute().outputUTF8();
-
-      System.out.println(" Output of System Call is " + output);
-    } catch (InvalidExitValueException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    } catch (IOException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    } catch (InterruptedException e) {
-      // TODO Auto-generated catch block
-      e.printStackTrace();
-    } catch (TimeoutException e) {
-      // TODO Auto-generated catch block
+      new ProcessExecutor().command("java", "-version")
+          .redirectOutput(Slf4jStream.of(getClass()).asInfo()).readOutput(true).execute();
+    } catch (InvalidExitValueException | IOException | InterruptedException | TimeoutException e) {
       e.printStackTrace();
     }
 
