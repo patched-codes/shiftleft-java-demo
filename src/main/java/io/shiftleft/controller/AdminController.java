@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-
 /**
  * Admin checks login
  */
@@ -34,9 +33,12 @@ public class AdminController {
       ByteArrayInputStream bis = new ByteArrayInputStream(Base64.getDecoder().decode(auth));
       ObjectInputStream objectInputStream = new ObjectInputStream(bis);
       Object authToken = objectInputStream.readObject();
+      if (!(authToken instanceof AuthToken)) {
+        throw new IllegalArgumentException("Invalid object type");
+      }
       return ((AuthToken) authToken).isAdmin();
     } catch (Exception ex) {
-      System.out.println(" cookie cannot be deserialized: "+ex.getMessage());
+      System.out.println("cookie cannot be deserialized: " + ex.getMessage());
       return false;
     }
   }
@@ -47,16 +49,15 @@ public class AdminController {
     return fail;
   }
 
-
   @RequestMapping(value = "/admin/printSecrets", method = RequestMethod.GET)
   public String doGetPrintSecrets(@CookieValue(value = "auth", defaultValue = "notset") String auth, HttpServletResponse response, HttpServletRequest request) throws Exception {
-
+    
     if (request.getSession().getAttribute("auth") == null) {
       return fail;
     }
 
     String authToken = request.getSession().getAttribute("auth").toString();
-    if(!isAdmin(authToken)) {
+    if (!isAdmin(authToken)) {
       return fail;
     }
 
@@ -74,6 +75,7 @@ public class AdminController {
 
   /**
    * Handle login attempt
+   *
    * @param auth cookie value base64 encoded
    * @param password hardcoded value
    * @param response -
@@ -88,36 +90,36 @@ public class AdminController {
     try {
       // no cookie no fun
       if (!auth.equals("notset")) {
-        if(isAdmin(auth)) {
-          request.getSession().setAttribute("auth",auth);
+        if (isAdmin(auth)) {
+          request.getSession().setAttribute("auth", auth);
           return succ;
         }
       }
 
       // split password=value
       String[] pass = password.split("=");
-      if(pass.length!=2) {
-        return fail;
-      }
-      // compare pass
-      if(pass[1] != null && pass[1].length()>0 && pass[1].equals("shiftleftsecret"))
-      {
+        if (pass.length != 2) {
+          return fail;
+        }
+        // compare pass
+      if (pass[1] != null && pass[1].length() > 0 && pass[1].equals("shiftleftsecret")) {
         AuthToken authToken = new AuthToken(AuthToken.ADMIN);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         ObjectOutputStream oos = new ObjectOutputStream(bos);
         oos.writeObject(authToken);
         String cookieValue = new String(Base64.getEncoder().encode(bos.toByteArray()));
-        response.addCookie(new Cookie("auth", cookieValue ));
+        Cookie cookie = new Cookie("auth", cookieValue);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(true);
+        response.addCookie(cookie);
 
         // cookie is lost after redirection
-        request.getSession().setAttribute("auth",cookieValue);
+        request.getSession().setAttribute("auth", cookieValue);
 
         return succ;
       }
       return fail;
-    }
-    catch (Exception ex)
-    {
+    } catch (Exception ex) {
       ex.printStackTrace();
       // no succ == fail
       return fail;
@@ -126,6 +128,7 @@ public class AdminController {
 
   /**
    * Same as POST but just a redirect
+   *
    * @param response
    * @param request
    * @return redirect

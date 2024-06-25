@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.ModelAndView;
+import org.springframework.web.bind.annotation.RequestMethod;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.Map;
@@ -40,7 +41,7 @@ public class AppErrorController implements ErrorController{
    * @param request
    * @return
    */
-  @RequestMapping(value = ERROR_PATH, produces = "text/html")
+  @RequestMapping(value = ERROR_PATH, produces = "text/html", method = RequestMethod.GET)
   public ModelAndView errorHtml(HttpServletRequest request) {
     return new ModelAndView("/errors/error", getErrorAttributes(request, false));
   }
@@ -67,7 +68,6 @@ public class AppErrorController implements ErrorController{
   public String getErrorPath() {
     return ERROR_PATH;
   }
-
 
   private boolean getTraceParameter(HttpServletRequest request) {
     String parameter = request.getParameter("trace");
