@@ -10,10 +10,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 
-
-/**
- * Search login
- */
 @Controller
 public class SearchController {
 
@@ -22,7 +18,7 @@ public class SearchController {
     java.lang.Object message = new Object();
     try {
       ExpressionParser parser = new SpelExpressionParser();
-      Expression exp = parser.parseExpression(foo);
+      Expression exp = parser.parseExpression("#{" + foo + "}");
       message = (Object) exp.getValue();
     } catch (Exception ex) {
       System.out.println(ex.getMessage());
